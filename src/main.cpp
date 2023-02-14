@@ -1,3 +1,4 @@
+
 #include <Arduino.h>
 #include <SPI.h>
 #include <ESP8266WiFi.h> 
@@ -14,6 +15,8 @@ void reconnect                ();
 void printLongRight           (byte, long);
 void setup                    ();
 void temperartur_schreiben    ();
+void wasserdruck_messen       ();
+void lichtsensor_ost          ();
 
 
 // *************************************************************** PCF8574 Adresse
@@ -38,52 +41,52 @@ PCF8591 pcf8591(0x48,0);
 
 
 // *************************************************************** Kartendaten 
-const char* kartenID = "WW-Steuerung-Keller2";
+const char* kartenID = "WW-Steuerung-Keller";
 
 
-// *************************************************************** Temperaturfuehler einrichten
+///////////////////////////////////////////////////////////////////// WIRE Bus
 #define ONE_WIRE_BUS D5
-#define TEMPERATURE_PRECISION 10
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
-DeviceAddress tempDeviceAddress; // Verzeichniss zum Speichern von Sensor Adressen
-int numberOfDevices; // Anzahl der gefundenen Sensoren
-// Temp. Sensor HEX zuweisen
-//DeviceAddress temp_keller         = { 0x28, 0xAA, 0x6C, 0x90, 0x16, 0x13, 0x02, 0xC2 }; 
-DeviceAddress temp_keller         = { 0x28, 0xF3, 0xF5, 0x7C, 0x1B, 0x13, 0x01, 0x97 };
-DeviceAddress temp_kollektor      = { 0x28, 0xFF, 0x7F, 0x77, 0xA1, 0x16, 0x05, 0x40 }; 
-DeviceAddress temp_aussen_osten   = { 0x28, 0xFF, 0x26, 0x95, 0xA1, 0x16, 0x04, 0x36 };
-DeviceAddress temp_ww_puffer_oben = { 0x28, 0xFF, 0x3B, 0x91, 0xA1, 0x16, 0x05, 0xF6 };
-DeviceAddress temp_vl_ph          = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 };
-DeviceAddress temp_rl_ph          = { 0x28, 0x8F, 0x51, 0x64, 0x1B, 0x13, 0x01, 0x7A };
-DeviceAddress temp_wasser_hahn    = { 0x28, 0x9F, 0xEB, 0x70, 0x1B, 0x13, 0x01, 0xE5 };
-DeviceAddress temp_vl_ww_puffer   = { 0x28, 0x8F, 0x55, 0x88, 0x1B, 0x13, 0x01, 0x3E };
 
+// Temp. Sensor HEX zuweisen
+DeviceAddress temp_keller         = { 0x28, 0xAA, 0x6C, 0x90, 0x16, 0x13, 0x02, 0xC2 }; 
+const char* topic_keller          = "Temperatur/Raum_WW_Keller";
+
+DeviceAddress temp_kollektor      = { 0x28, 0x5F, 0x72, 0x81, 0xE3, 0x11, 0x3C, 0xBA }; 
+const char* topic_kollektor       = "Temperatur/Kollektor_oben";
+
+DeviceAddress temp_aussen_osten   = { 0x28, 0xFF, 0x26, 0x95, 0xA1, 0x16, 0x04, 0x36 };
+const char* topic_aussen_ost      = "Temperatur/Haus/Ost";
+
+DeviceAddress temp_ww_puffer_oben = { 0x28, 0xFF, 0x3B, 0x91, 0xA1, 0x16, 0x05, 0xF6 };
+const char* topic_puffer_oben     = "Temperatur/WW_Puffer_oben";
+
+DeviceAddress temp_vl_ph          = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 };
+const char* topic_vl_ph           = "Temperatur/vl_ph";
+
+DeviceAddress temp_rl_ph          = { 0x28, 0x8F, 0x51, 0x64, 0x1B, 0x13, 0x01, 0x7A };
+const char* topic_rl_ph           = "Temperatur/vl_ph";
+
+DeviceAddress temp_wasser_hahn    = { 0x28, 0x9F, 0xEB, 0x70, 0x1B, 0x13, 0x01, 0xE5 };
+const char* topic_wasser_hahn     = "Temperatur/Wasserhahn";
+
+DeviceAddress temp_vl_ww_puffer   = { 0x28, 0x8F, 0x55, 0x88, 0x1B, 0x13, 0x01, 0x3E };
+const char* topic_vl_ww_puffer    = "Temperatur/vl_ww_puffer";
 // *************************************************************** Temp. Sensor Messwert Variablen
 char stgFromFloat[10];
 char msgToPublish[60];
 char textTOtopic[60];
 
-float wert_temp_keller;
-const char* topic_keller = "Temperatur/Raum_WW_Keller";
-
-float wert_temp_kollektor;
-float wert_temp_aussen_osten;
-float wert_temp_ww_puffer_oben;
-float wert_temp_vl_ph;
-float wert_temp_rl_ph;
-float wert_temp_wasser_hahn;
-float wert_temp_vl_ww_puffer;
-
 // ***************************************************************///////////// Intervall der Steuerung
-unsigned long previousMillis_Temperatur = 0;
-unsigned long interval_Temperatur = 30000; 
+unsigned long letzteMillis_Temperatur = 0;
+unsigned long interval_Temperatur = 5000; 
 
-unsigned long previousMillis_Wasserdruck= 0;
-unsigned long interval_Wasserdruck= 5000; 
+unsigned long letzteMillis_Wasserdruck= 0;
+unsigned long interval_Wasserdruck= 1000; 
 
-unsigned long previousMillis_lichtstaerke= 0;
-unsigned long interval_lichtstaerke = 60000; 
+unsigned long letzteMillis_lichtstaerke= 0;
+unsigned long interval_lichtstaerke = 1000; 
 // ***************************************************************/////////////
 
 
@@ -106,6 +109,17 @@ void setup() {
 // pcf8591 start
  pcf8591.begin();
 
+//*************************************************************** Temp Sensor auslesen
+sensors.begin();
+sensors.setResolution(temp_keller, 9);
+sensors.setResolution(temp_kollektor, 9);
+sensors.setResolution(temp_aussen_osten, 9);
+sensors.setResolution(temp_ww_puffer_oben, 9);
+sensors.setResolution(temp_vl_ph, 9);
+sensors.setResolution(temp_rl_ph, 9);
+sensors.setResolution(temp_wasser_hahn, 9);
+sensors.setResolution(temp_vl_ww_puffer, 9); 
+
 // MQTT Broker
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -119,7 +133,7 @@ void setup() {
   Serial.println(ssid);
 
   // WiFi 
-  IPAddress ip(192, 168, 3, 10);
+  IPAddress ip(192, 168, 4, 25);
 	IPAddress dns(192, 168, 1, 1);  
 	IPAddress subnet(255, 255, 0, 0);
 	IPAddress gateway(192, 168, 1, 1);
@@ -144,7 +158,7 @@ void setup() {
 
 
 // *************************************************************** Messrelais
-  pinMode(D3,OUTPUT);
+  pinMode(D8,OUTPUT);
 
 // pcf8574 Expander konfigurieren
 // *************************************************************** Konfig Relais
@@ -170,92 +184,106 @@ pcf8574.digitalWrite(P6, !LOW);
 pcf8574.digitalWrite(P7, !LOW);
 
 
-// *************************************************************** Relais Check
-/*
-pcf8574.digitalWrite(P0, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P0, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P1, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P1, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P2, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P2, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P3, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P3, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P4, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P4, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P5, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P5, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P6, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P6, !LOW);
-delay(400);
-
-pcf8574.digitalWrite(P7, !HIGH);
-delay(400);
-pcf8574.digitalWrite(P7, !LOW);
-delay(400);
-*/
-
-//*************************************************************** Temp Sensor auslesen
-sensors.begin();
-sensors.setResolution(temp_keller, 4);
-sensors.setResolution(temp_kollektor, 4);
-sensors.setResolution(temp_aussen_osten, 4);
-sensors.setResolution(temp_ww_puffer_oben, 4);
-sensors.setResolution(temp_vl_ph, 4);
-sensors.setResolution(temp_rl_ph, 4);
-sensors.setResolution(temp_wasser_hahn, 4);
-sensors.setResolution(temp_vl_ww_puffer, 4);
 
 
 }
 
 void temperartur_schreiben() {
-// //*************************************************************** Transistor schalten
-   digitalWrite(D3,HIGH);
-   //Serial.println("Transistor HIGH");
-   delay(25);
 
-//*************************************************************** Sensor schreiben
 sensors.requestTemperatures();
 
-//*************************************************************** temp_keller
-  int currentTemp = sensors.getTempC(temp_keller);
+// //*************************************************************** Transistor schalten
+   //digitalWrite(D8,HIGH);
+   //Serial.println("----- AKTOR ------ Transistor AN");
+  // delay(150);
 
-   if ((currentTemp == -127)||(currentTemp == 85))  { 
+//*************************************************************** wert_temp_kollektor
+  int currentTemp2 = sensors.getTempC(temp_kollektor);
+  dtostrf(currentTemp2, 4, 2, stgFromFloat);
+
+   if ((currentTemp2 == -127)||(currentTemp2 == 85))  { 
      } 
     else 
         {     
-        dtostrf(currentTemp, 4, 2, stgFromFloat);
+        
         sprintf(msgToPublish, "%s", stgFromFloat);
-        sprintf(textTOtopic, "%s", topic_keller);
+        sprintf(textTOtopic, "%s", topic_kollektor);
         client.publish(textTOtopic, msgToPublish);
         }
 
-// //*************************************************************** Transistor schalten
-   digitalWrite(D3,LOW);
-   //Serial.println("Transistor LOW");
-   //delay(5000);
+//*************************************************************** temp_aussen_osten
+  int currentTemp3 = sensors.getTempC(temp_aussen_osten);
+  dtostrf(currentTemp3, 4, 2, stgFromFloat);
+
+   if ((currentTemp3 == -127)||(currentTemp3 == 85))  { 
+     } 
+    else 
+        {     
+        
+        sprintf(msgToPublish, "%s", stgFromFloat);
+        sprintf(textTOtopic, "%s", topic_aussen_ost);
+        client.publish(textTOtopic, msgToPublish);
+        }
+
+//*************************************************************** temp_aussen_osten
+  int currentTemp4 = sensors.getTempC(temp_ww_puffer_oben);
+  dtostrf(currentTemp4, 4, 2, stgFromFloat);
+
+   if ((currentTemp4 == -127)||(currentTemp4 == 85))  { 
+     } 
+    else 
+        {     
+        
+        sprintf(msgToPublish, "%s", stgFromFloat);
+        sprintf(textTOtopic, "%s", topic_puffer_oben);
+        client.publish(textTOtopic, msgToPublish);
+        }        
+
+/*
+DeviceAddress temp_ww_puffer_oben = { 0x28, 0xFF, 0x3B, 0x91, 0xA1, 0x16, 0x05, 0xF6 };
+const char* topic_puffer_oben     = "Temperatur/WW_Puffer_oben";
+
+DeviceAddress temp_vl_ph          = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 };
+const char* topic_vl_ph           = "Temperatur/vl_ph";
+
+DeviceAddress temp_rl_ph          = { 0x28, 0x8F, 0x51, 0x64, 0x1B, 0x13, 0x01, 0x7A };
+const char* topic_rl_ph           = "Temperatur/vl_ph";
+
+DeviceAddress temp_wasser_hahn    = { 0x28, 0x9F, 0xEB, 0x70, 0x1B, 0x13, 0x01, 0xE5 };
+const char* topic_wasser_hahn     = "Temperatur/Wasserhahn";
+
+DeviceAddress temp_vl_ww_puffer   = { 0x28, 0x8F, 0x55, 0x88, 0x1B, 0x13, 0x01, 0x3E };
+const char* topic_vl_ww_puffer    = "Temperatur/vl_ww_puffer";
+
+
+*/
+  
 
 }
 
+void wasserdruck_messen() {
+
+  // ADC Pin für Wasserdruck ansprechen 
+  int ana0V = pcf8591.adc_raw_read(0);
+  dtostrf(ana0V, 4, 2, stgFromFloat);
+ 
+        
+    sprintf(msgToPublish, "%s", stgFromFloat);
+    client.publish("Wasserdruck/LeitungBad", msgToPublish);
+
+}
+
+void lichtsensor_ost() {
+
+  // ADC Pin für Wasserdruck ansprechen 
+  int ana1V = pcf8591.adc_raw_read(1);
+  dtostrf(ana1V, 4, 2, stgFromFloat);
+ 
+        
+    sprintf(msgToPublish, "%s", stgFromFloat);
+    client.publish("Lichtsensor/Ost", msgToPublish);
+
+}
 
 void loop() {
 
@@ -283,9 +311,39 @@ void loop() {
   }
   client.loop();
 
-//temperartur_schreiben();
+//*************************************************************** Tempertur Messen
+  if (millis() - letzteMillis_Temperatur > interval_Temperatur) {
 
-//delay(2500);
+    letzteMillis_Temperatur = millis();   // aktuelle Zeit abspeichern
+    
+    temperartur_schreiben();
+    
+  }  
+
+
+//*************************************************************** Tempertur Messen
+  if (millis() - letzteMillis_lichtstaerke > interval_Wasserdruck) {
+
+    letzteMillis_lichtstaerke = millis();   // aktuelle Zeit abspeichern
+    
+    wasserdruck_messen();
+    
+  }   
+
+
+//*************************************************************** Lichtstärke
+  if (millis() - letzteMillis_Wasserdruck > interval_lichtstaerke) {
+
+    letzteMillis_Wasserdruck = millis();   // aktuelle Zeit abspeichern
+    
+    lichtsensor_ost() ;
+    
+  }   
+
+
+
+
+delay(200);
 
 
 
@@ -294,38 +352,17 @@ void loop() {
 //**************************************************************** VOID mqtt callback
 void callback(char* topic, byte* payload, unsigned int length) {
 // *************************************************************** Relais A - Kollerktor Pumpen
- /*
-    if (strcmp(topic,"Pumpe_Kollektor/IN")==0) {
-
-        // Kanal A
-        if ((char)payload[0] == 'o' && (char)payload[1] == 'n') {  
-                 Serial.println("relais_A -> AN");
-                 pcf8574.digitalWrite(P0, !HIGH);
-                 client.publish("Pumpe_Kollektor/OUT","on");
-                delay(100);
-              }
-
-        if ((char)payload[0] == 'o' && (char)payload[1] == 'f' && (char)payload[2] == 'f') {  
-                 Serial.println("relais_A -> AUS");
-                 pcf8574.digitalWrite(P0, !LOW);
-                 client.publish("Pumpe_Kollektor/OUT","off");
-                delay(100);
-              }
-      } 
-*/
-
-
-
 // handle message arrived
   String content="";
   char character;
+
+  Serial.print("mqtt : ");
+  Serial.println(content);
+
     for (int num=0;num<length;num++) {
         character = payload[num];
         content.concat(character);
       }
-
-      Serial.print("***** MQTT callback - Content : ");
-      Serial.print(topic);Serial.print(" | ");Serial.println(content);
 
     // *********************************************************** Relais 0
     if (strcmp(topic,"Warmwasser/ww_relais_0")==0) { // IF strcmp
@@ -339,6 +376,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
             Serial.println("Relais 0 -> AUS");
             pcf8574.digitalWrite(P0, !LOW);
         }
+
+    } // IF strcmp        
 
     // *********************************************************** Relais 1
     if (strcmp(topic,"Warmwasser/ww_relais_1")==0) { // IF strcmp
@@ -453,29 +492,29 @@ void callback(char* topic, byte* payload, unsigned int length) {
 //************************************************************** VOID mqtt reconnected
 void reconnect() {
   // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Baue Verbindung zum mqtt Server auf. IP: ");
-    // Attempt to connect
-    if (client.connect(kartenID,"zugang1","43b4134735")) {
-      Serial.println("connected");
-// *************************************************************** SUBSCRIBE Eintraege
-      client.subscribe ("Warmwasser/ww_relais_0");
-      client.subscribe ("Warmwasser/ww_relais_1");
-      client.subscribe ("Warmwasser/ww_relais_2");
-      client.subscribe ("Warmwasser/ww_relais_3");
-      client.subscribe ("Warmwasser/ww_relais_4");
-      client.subscribe ("Warmwasser/ww_relais_5");
-      client.subscribe ("Warmwasser/ww_relais_6");
-      client.subscribe ("Warmwasser/ww_relais_7");
+    while (!client.connected()) {
+      Serial.print("Baue Verbindung zum mqtt Server auf. IP: ");
+      // Attempt to connect
+        if (client.connect(kartenID,"zugang1","43b4134735")) {
+          Serial.println("connected");
+    // *************************************************************** SUBSCRIBE Eintraege
+          client.subscribe ("Warmwasser/ww_relais_0");
+          client.subscribe ("Warmwasser/ww_relais_1");
+          client.subscribe ("Warmwasser/ww_relais_2");
+          client.subscribe ("Warmwasser/ww_relais_3");
+          client.subscribe ("Warmwasser/ww_relais_4");
+          client.subscribe ("Warmwasser/ww_relais_5");
+          client.subscribe ("Warmwasser/ww_relais_6");
+          client.subscribe ("Warmwasser/ww_relais_7");
 
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
+        } else {
+          Serial.print("failed, rc=");
+          Serial.print(client.state());
+          Serial.println(" try again in 5 seconds");
+          // Wait 5 seconds before retrying
+          delay(5000);
+        }
     }
-  }
 }
 
 // ***************************************************************//
