@@ -53,7 +53,7 @@ DallasTemperature sensors(&oneWire);
 DeviceAddress temp_keller         = { 0x28, 0xAA, 0x6C, 0x90, 0x16, 0x13, 0x02, 0xC2 }; 
 const char* topic_keller          = "Temperatur/Raum_WW_Keller";
 
-DeviceAddress temp_kollektor      = { 0x28, 0x5F, 0x72, 0x81, 0xE3, 0x11, 0x3C, 0xBA }; 
+DeviceAddress temp_kollektor      = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 }; 
 const char* topic_kollektor       = "Temperatur/Kollektor_oben";
 
 DeviceAddress temp_aussen_osten   = { 0x28, 0xFF, 0x26, 0x95, 0xA1, 0x16, 0x04, 0x36 };
@@ -62,8 +62,8 @@ const char* topic_aussen_ost      = "Temperatur/Haus/Ost";
 DeviceAddress temp_ww_puffer_oben = { 0x28, 0xFF, 0x3B, 0x91, 0xA1, 0x16, 0x05, 0xF6 };
 const char* topic_puffer_oben     = "Temperatur/WW_Puffer_oben";
 
-DeviceAddress temp_vl_ph          = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 };
-const char* topic_vl_ph           = "Temperatur/vl_ph";
+//DeviceAddress temp_vl_ph          = { 0x28, 0xAA, 0x2A, 0x9E, 0x16, 0x13, 0x02, 0xA2 };
+//const char* topic_vl_ph           = "Temperatur/vl_ph";
 
 DeviceAddress temp_rl_ph          = { 0x28, 0x8F, 0x51, 0x64, 0x1B, 0x13, 0x01, 0x7A };
 const char* topic_rl_ph           = "Temperatur/vl_ph";
@@ -115,7 +115,7 @@ sensors.setResolution(temp_keller, 9);
 sensors.setResolution(temp_kollektor, 9);
 sensors.setResolution(temp_aussen_osten, 9);
 sensors.setResolution(temp_ww_puffer_oben, 9);
-sensors.setResolution(temp_vl_ph, 9);
+//sensors.setResolution(temp_vl_ph, 9);
 sensors.setResolution(temp_rl_ph, 9);
 sensors.setResolution(temp_wasser_hahn, 9);
 sensors.setResolution(temp_vl_ww_puffer, 9); 
